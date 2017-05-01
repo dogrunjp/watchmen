@@ -37,7 +37,7 @@ slack_title = 'Checked it!'
 # --Test settings--
 test = Bunch.fromDict({
         'test1': {
-        'title': 'aoe-experiment',
+        'title': '',
         'test_url': 'http://',
         'api': '/',
         'response_min_length': 30000,
