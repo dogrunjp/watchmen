@@ -1,13 +1,13 @@
-application: watchman-161109
-version: 1
+application: watchman
 runtime: python27
+version: 1
 api_version: 1
-threadsafe: yes
+threadsafe: true
+module: default
 
 handlers:
-- url: /favicon\.ico
-  static_files: favicon.ico
-  upload: favicon\.ico
-
-- url: .*
-  script: main.app
+- url: /.*
+  script: application.app
+- url: /.*
+  script: worker.app
+  login: admin

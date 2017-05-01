@@ -34,7 +34,6 @@ slack_title = 'Checked it!'
 
 # --Test settings--
 test_url = ''  # your target service url
-test_app = TestApp(test_url)
 test_api = '/'  # api
 response_min_length = 1000  # int
 response_contain = ''  # sting must contain in response
@@ -42,6 +41,7 @@ response_contain = ''  # sting must contain in response
 class CheckSites(webapp2.RequestHandler):
     def get(self):
         try:
+            test_app = TestApp(test_url)
             res = test_app.get(test_api)
             assert(res.status == '200 OK')
             assert(res.content_type == 'text/html')
@@ -53,12 +53,6 @@ class CheckSites(webapp2.RequestHandler):
         except:
             s = 'test setting'
             slack_post(s)
-
-
-class NotFoundPageHandler(webapp2.RequestHandler):
-    def get(self):
-        self.error(404)
-        self.response.out.write('<Your 404 error html page>')
 
 
 def slack_post(s):
