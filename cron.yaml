@@ -1,4 +1,4 @@
 cron:
 - description: basic webtest
-  url: /web_test
-  schedule: every 30 minutes
+  url: /dynamic_webtest
+  schedule: every 5 minutes

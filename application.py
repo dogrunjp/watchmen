@@ -1,86 +1,99 @@
-#!/usr/bin/env python
-#
-# Copyright 2007 Google Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-# -*- coding: utf-8 -*-
 
 import sys
 import webapp2
 import logging
-import unittest
+import json
 sys.path.insert(0, 'lib')
 
 import slackweb
 from webtest import TestApp
 from bunch import Bunch
 
+
+# --API settings--
+cron_path = ''  # path for cron - as you like
+
 # --Slack Settings--
-slack_web_hook = ''
+slack_web_hook = '' # fill your slack web hook url
 slack_channel = ''
 slack_user = ''
 slack = slackweb.Slack(url=slack_web_hook)
-slack_pretext = 'something wrong with your service'
-slack_title = 'Checked it!'
+slack_pretext = ''
+slack_title = ''
 
-# --Test settings--
-test = Bunch.fromDict({
+# --Test confs--
+tests = Bunch.fromDict({
         'test1': {
-        'title': '',
-        'test_url': 'http://',
-        'api': '/',
-        'response_min_length': 30000,
-        'response_contain': 'hoge'
+            'title': 'Test 1',
+            'test_url': 'http://xxx',
+            'api': '/',
+            'test': [('eq', 'res.status', '200 OK'), ('eq', 'res.content_type', 'application/json'), ('In', 'res', 'body')]
         },
         'test2': {
-            'title': '',
-            'test_url': 'http://',
-            'api': '/',
+            'title': 'Test 2',
+            'test_url': 'http://xxx',
+            'api': '/xxx',
+            'test': [('gt', 'res.content_length', 30000),('eq', 'res.status', '200 OK'), ('In', 'res', 'h1')]
         }
     })
 
+# 'test' value is valriable length list of tuple.
+# each tuple can contain 3 element( type, response element, expected value of response element).
 
-class WebTest(webapp2.RequestHandler):
+
+# Target class
+class DynamicTest():
+    pass
+
+
+def assert_gen(res, type, param, rt):
+    res = res
+    def In(res):
+        return (rt in eval(param))
+
+    def eq(res):
+        return (eval(param) == rt)
+
+    def gt(res):
+        return (eval(param) > rt)
+
+    return locals()[type](res)
+
+
+def test_gen(test_name):
+    def test(self):
+        title = tests[test_name].title
+        # test is object include tupls like (type, param, return val)
+        try:
+            test_app = TestApp(tests[test_name].test_url)
+            res = test_app.get(tests[test_name].api)
+            test = tests[test_name].test
+            # test is object include tupls like (type, param, return val)
+            for t in test:
+                assert assert_gen(res, t[0], t[1], t[2])
+        except AssertionError:
+            slack_post(title)
+
+        except:
+            s = '{} settings'.format(title)
+            slack_post(s)
+    return test
+
+
+class ApiTest(webapp2.RequestHandler):
     def get(self):
-        try:
-            test_app = TestApp(test.aoe.test_url)
-            res = test_app.get(test.aoe.api)
-            assert (res.status == '200 OK')
-            assert (res.content_type == 'text/html')
-            assert (res.content_length > test.test1.response_min_length)
-            assert (test.test1.response_contain in res)
-            #slack_post("nothing")
-        except AssertionError:
-            slack_post(test.test1.test_url)
-        except:
-            s = 'test {} setting'.format(test.test1.title)
-            slack_post(s)
+        for k, v in tests.iteritems():
+            test_name = k
+            test_item = test_gen(test_name)
+            # create test instance with test_gene()
+            setattr(DynamicTest, test_name, test_item)
 
-
-class ApiTest(unittest.TestCase):
-    def test_api_root(self):
-        test_app = TestApp(test.test2.test_url)
-        res = test_app.get(test.test2.api)
-        try:
-            self.assertEqual(res.status, '200 OK', msg=res.status)
-            self.assertEqual(res.content_type, 'application/json', msg=res.content_type)
-            slack_post("nothing")
-        except AssertionError:
-            slack_post(test.test2.test_url)
-        except:
-            s = 'test {} setting'.format(test.test2.title)
-            slack_post(s)
+        # get method name
+        methods = [method for method in dir(DynamicTest) if callable(getattr(DynamicTest, str(method)))]
+        dt = DynamicTest()
+        for m in methods:
+            print(m)
+            getattr(dt, m)()
 
 
 def slack_post(s):
@@ -95,35 +108,6 @@ def slack_post(s):
     slack.notify(channel=slack_channel, username=slack_user, attachments=attachments)
 
 
-class TestHandler(webapp2.RequestHandler):
-    def get(self):
-        my_suit = suite()
-        runner = unittest.TextTestRunner()
-        runner.run(my_suit)
-
-
-def suite():
-    test_suite = unittest.TestSuite()
-    test_suite.addTest(unittest.makeSuite(ApiTest))
-    return test_suite
-
-
-def handle_404(request, response, exception):
-    logging.exception(exception)
-    response.write('Not Found')
-    response.set_status(404)
-
-
-def handle_500(request, response, exception):
-    logging.exception(exception)
-    response.write('A server error occurred')
-    response.set_status(500)
-
-
 app = webapp2.WSGIApplication([
-    ('/web_test', WebTest),
-    ('/tests', TestHandler)
+    (cron_path, ApiTest)
 ], debug=True)
-
-app.error_handlers[404] = handle_404
-app.error_handlers[500] = handle_500
