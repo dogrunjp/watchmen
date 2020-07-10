@@ -1,0 +1,7 @@
+# --Slack Settings--
+slack_web_hook: 'https://hooks.slack.com/services/{}'
+slack_channel: ''
+slack_user: ''
+slack: slackweb.Slack(url=slack_web_hook)
+slack_pretext: ''
+slack_title: ''

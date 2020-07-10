@@ -1,4 +1,0 @@
-cron:
-- description: basic webtest
-  url: /dynamic_webtest
-  schedule: every 5 minutes
